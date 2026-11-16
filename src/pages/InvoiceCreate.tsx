@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import {
-  ShoppingCart, Search, Plus, Trash2, Loader2, AlertCircle,
-  CheckCircle2, ChevronDown, X, User, IndianRupee,
+  ShoppingCart, Search, Trash2, Loader2, AlertCircle,
+  CheckCircle2, X, User, IndianRupee, Package,
 } from 'lucide-react';
 
 interface Product {
@@ -10,9 +10,11 @@ interface Product {
   name: string;
   code: string;
   company: string;
+  category?: string;
   baseStockUnit: string;
-  approvedSellingRate?: number;
-  sellingDiscountPercent?: number;
+  packSize?: number;           // kg per bag (e.g. 20 → 20 kg bag)
+  approvedSellingRate?: number; // ₹/kg borrowing (credit) rate
+  sellingDiscountPercent?: number; // cash discount %
 }
 
 interface Farmer {
@@ -24,27 +26,38 @@ interface Farmer {
 interface LineItem {
   productId: string;
   productName: string;
-  unit: string;
-  approvedRate: number;
-  maxDiscount: number;
-  quantity: string;
-  discountPercent: string;
+  baseUnit: string;         // actual stock unit (kg, L …)
+  packSize: number;         // 0 = no bags; >0 = kg per bag
+  approvedRate: number;     // ₹/baseUnit (borrowing rate)
+  cashDiscountPct: number;  // % cash discount
+  quantity: string;         // in bags when packSize > 0, else in baseUnit
+  isCash: boolean;          // true → apply cashDiscountPct
 }
 
+const fmtRs = (v: number) => `₹${v.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+
+/** Total in ₹ for a line item */
+const lineTotal = (item: LineItem): number => {
+  const qty     = parseFloat(item.quantity) || 0;
+  const kgQty   = item.packSize > 0 ? qty * item.packSize : qty;
+  const disc    = item.isCash ? item.cashDiscountPct : 0;
+  return item.approvedRate * kgQty * (1 - disc / 100);
+};
+
 const InvoiceCreate: React.FC = () => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [farmers, setFarmers] = useState<Farmer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<{ invoiceId: string; total: number } | null>(null);
+  const [products, setProducts]       = useState<Product[]>([]);
+  const [farmers, setFarmers]         = useState<Farmer[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [submitting, setSubmitting]   = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [success, setSuccess]         = useState<{ invoiceId: string; total: number } | null>(null);
 
-  const [farmerSearch, setFarmerSearch] = useState('');
-  const [showFarmerDrop, setShowFarmerDrop] = useState(false);
-  const [selectedFarmer, setSelectedFarmer] = useState<Farmer | null>(null);
+  const [farmerSearch, setFarmerSearch]       = useState('');
+  const [showFarmerDrop, setShowFarmerDrop]   = useState(false);
+  const [selectedFarmer, setSelectedFarmer]   = useState<Farmer | null>(null);
 
-  const [items, setItems] = useState<LineItem[]>([]);
-  const [productSearch, setProductSearch] = useState('');
+  const [items, setItems]                     = useState<LineItem[]>([]);
+  const [productSearch, setProductSearch]     = useState('');
   const [showProductDrop, setShowProductDrop] = useState(false);
 
   const [paymentMethod, setPaymentMethod] = useState('Cash');
@@ -73,54 +86,44 @@ const InvoiceCreate: React.FC = () => {
   );
 
   const addProduct = (p: Product) => {
-    if (items.find(i => i.productId === p._id)) { setShowProductDrop(false); setProductSearch(''); return; }
+    if (items.find(i => i.productId === p._id)) {
+      setShowProductDrop(false); setProductSearch(''); return;
+    }
+    const packSize = p.packSize ?? 0;
     setItems(prev => [...prev, {
-      productId: p._id,
-      productName: p.name,
-      unit: p.baseStockUnit,
-      approvedRate: p.approvedSellingRate!,
-      maxDiscount: p.sellingDiscountPercent ?? 0,
-      quantity: '1',
-      discountPercent: '0',
+      productId:      p._id,
+      productName:    p.name,
+      baseUnit:       p.baseStockUnit,
+      packSize,
+      approvedRate:   p.approvedSellingRate!,
+      cashDiscountPct: p.sellingDiscountPercent ?? 0,
+      quantity:       '1',
+      isCash:         false,
     }]);
     setProductSearch('');
     setShowProductDrop(false);
   };
 
-  const updateItem = (idx: number, field: 'quantity' | 'discountPercent', val: string) => {
-    setItems(prev => prev.map((item, i) => {
-      if (i !== idx) return item;
-      const updated = { ...item, [field]: val };
-      // Cap discount at max
-      if (field === 'discountPercent') {
-        const disc = parseFloat(val) || 0;
-        updated.discountPercent = String(Math.min(disc, item.maxDiscount));
-      }
-      return updated;
-    }));
-  };
+  const updateQty = (idx: number, val: string) =>
+    setItems(prev => prev.map((item, i) => i !== idx ? item : { ...item, quantity: val }));
 
-  const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
+  const toggleCash = (idx: number) =>
+    setItems(prev => prev.map((item, i) => i !== idx ? item : { ...item, isCash: !item.isCash }));
 
-  const lineTotal = (item: LineItem) => {
-    const qty = parseFloat(item.quantity) || 0;
-    const disc = parseFloat(item.discountPercent) || 0;
-    return item.approvedRate * qty * (1 - disc / 100);
-  };
+  const removeItem = (idx: number) =>
+    setItems(prev => prev.filter((_, i) => i !== idx));
 
   const totalAmount = items.reduce((s, item) => s + lineTotal(item), 0);
-  const fmtRs = (v: number) => `₹${v.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFarmer) { setError('Select a farmer'); return; }
-    if (!items.length) { setError('Add at least one product'); return; }
+    if (!items.length)   { setError('Add at least one product'); return; }
     for (const item of items) {
       if (!parseFloat(item.quantity) || parseFloat(item.quantity) <= 0) {
         setError(`Enter a valid quantity for ${item.productName}`); return;
       }
     }
-
     setError(null);
     setSubmitting(true);
     try {
@@ -128,8 +131,11 @@ const InvoiceCreate: React.FC = () => {
         farmerId: selectedFarmer._id,
         items: items.map(item => ({
           productId: item.productId,
-          quantity: parseFloat(item.quantity),
-          discountPercent: parseFloat(item.discountPercent) || 0,
+          // Send quantity in baseUnit (kg) — bags × packSize converts to kg
+          quantity: item.packSize > 0
+            ? parseFloat(item.quantity) * item.packSize
+            : parseFloat(item.quantity),
+          discountPercent: item.isCash ? item.cashDiscountPct : 0,
         })),
         ...(paymentAmount && Number(paymentAmount) > 0
           ? { payment: { amount: Number(paymentAmount), method: paymentMethod } }
@@ -218,7 +224,7 @@ const InvoiceCreate: React.FC = () => {
         <div className="bg-white/4 border border-white/8 rounded-2xl p-4 space-y-3">
           <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest">Products *</label>
 
-          {/* Add product search */}
+          {/* Product search */}
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
             <input
@@ -230,18 +236,28 @@ const InvoiceCreate: React.FC = () => {
             />
             {showProductDrop && filteredProducts.length > 0 && (
               <div className="absolute z-20 w-full mt-1 bg-zinc-800 border border-white/10 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                {filteredProducts.slice(0, 15).map(p => (
-                  <button
-                    key={p._id} type="button"
-                    onClick={() => addProduct(p)}
-                    className="w-full text-left px-4 py-2.5 hover:bg-white/8 text-sm flex justify-between items-center"
-                  >
-                    <span className="text-white font-medium">{p.name}</span>
-                    <span className="text-emerald-400 text-xs font-semibold">
-                      ₹{p.approvedSellingRate?.toLocaleString('en-IN', { minimumFractionDigits: 2 })} / {p.baseStockUnit}
-                    </span>
-                  </button>
-                ))}
+                {filteredProducts.slice(0, 15).map(p => {
+                  const bagLabel = p.packSize && p.packSize > 0
+                    ? ` · ₹${((p.approvedSellingRate ?? 0) * p.packSize).toLocaleString('en-IN', { minimumFractionDigits: 2 })} / ${p.packSize}${p.baseStockUnit} bag`
+                    : '';
+                  return (
+                    <button
+                      key={p._id} type="button"
+                      onClick={() => addProduct(p)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-white/8 text-sm flex justify-between items-center gap-2"
+                    >
+                      <div>
+                        <span className="text-white font-medium">{p.name}</span>
+                        {p.packSize && p.packSize > 0 && (
+                          <span className="ml-2 text-[10px] text-zinc-500">{p.packSize}{p.baseStockUnit}/bag</span>
+                        )}
+                      </div>
+                      <span className="text-emerald-400 text-xs font-semibold shrink-0">
+                        ₹{p.approvedSellingRate?.toLocaleString('en-IN', { minimumFractionDigits: 2 })} / {p.baseStockUnit}{bagLabel}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -250,47 +266,93 @@ const InvoiceCreate: React.FC = () => {
           {items.length > 0 && (
             <div className="space-y-2">
               {items.map((item, idx) => {
-                const total = lineTotal(item);
+                const total         = lineTotal(item);
+                const borrowingRate = item.approvedRate;
+                const cashRate      = borrowingRate * (1 - item.cashDiscountPct / 100);
+                const effectiveRate = item.isCash ? cashRate : borrowingRate;
+                const bagRate       = item.packSize > 0 ? effectiveRate * item.packSize : null;
+                const qtyLabel      = item.packSize > 0 ? 'bags' : item.baseUnit;
+                const kgQty         = item.packSize > 0
+                  ? (parseFloat(item.quantity) || 0) * item.packSize
+                  : parseFloat(item.quantity) || 0;
+
                 return (
                   <div key={item.productId} className="bg-white/4 border border-white/8 rounded-xl p-3">
+                    {/* Product header */}
                     <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="text-sm font-semibold text-white">{item.productName}</p>
-                        <p className="text-xs text-zinc-500">Rate: ₹{item.approvedRate.toLocaleString('en-IN', { minimumFractionDigits: 2 })} / {item.unit}</p>
+                      <div className="flex items-center gap-2">
+                        <Package size={13} className="text-zinc-500 shrink-0" />
+                        <div>
+                          <p className="text-sm font-semibold text-white leading-tight">{item.productName}</p>
+                          {/* Rate info */}
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="text-[10px] text-zinc-500">
+                              Borrowing: ₹{borrowingRate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/{item.baseUnit}
+                            </span>
+                            {item.cashDiscountPct > 0 && (
+                              <span className="text-[10px] text-lime-400">
+                                Cash: ₹{cashRate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/{item.baseUnit} ({item.cashDiscountPct}% off)
+                              </span>
+                            )}
+                            {item.packSize > 0 && (
+                              <span className="text-[10px] text-zinc-600">
+                                · {item.packSize}{item.baseUnit}/bag
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <button type="button" onClick={() => removeItem(idx)} className="p-1 text-zinc-600 hover:text-red-400 transition">
+                      <button type="button" onClick={() => removeItem(idx)} className="p-1 text-zinc-600 hover:text-red-400 transition shrink-0">
                         <Trash2 size={14} />
                       </button>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+
+                    {/* Controls: qty + cash toggle + total */}
+                    <div className="grid grid-cols-3 gap-2 items-end">
                       <div>
-                        <label className="block text-[10px] text-zinc-500 mb-1">Qty ({item.unit})</label>
+                        <label className="block text-[10px] text-zinc-500 mb-1">Qty ({qtyLabel})</label>
                         <input
-                          type="number" min="0.01" step="any"
+                          type="number" min="0.01" step={item.packSize > 0 ? '1' : 'any'}
                           value={item.quantity}
-                          onChange={e => updateItem(idx, 'quantity', e.target.value)}
+                          onChange={e => updateQty(idx, e.target.value)}
                           className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white outline-none focus:border-emerald-500/60 transition"
                         />
+                        {item.packSize > 0 && (parseFloat(item.quantity) || 0) > 0 && (
+                          <p className="text-[10px] text-zinc-600 mt-0.5">{kgQty.toLocaleString('en-IN')} {item.baseUnit} total</p>
+                        )}
                       </div>
                       <div>
-                        <label className="block text-[10px] text-zinc-500 mb-1">Discount % (max {item.maxDiscount}%)</label>
-                        <input
-                          type="number" min="0" max={item.maxDiscount} step="0.5"
-                          value={item.discountPercent}
-                          onChange={e => updateItem(idx, 'discountPercent', e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white outline-none focus:border-emerald-500/60 transition"
-                        />
+                        <label className="block text-[10px] text-zinc-500 mb-1">Rate Type</label>
+                        <button
+                          type="button"
+                          onClick={() => toggleCash(idx)}
+                          className={`w-full py-1.5 rounded-lg text-xs font-semibold border transition ${
+                            item.isCash
+                              ? 'bg-lime-500/15 border-lime-500/40 text-lime-400'
+                              : 'bg-zinc-700/40 border-white/10 text-zinc-400'
+                          }`}
+                        >
+                          {item.isCash ? '💵 Cash' : '📋 Borrowing'}
+                        </button>
+                        {bagRate != null && (
+                          <p className="text-[10px] text-zinc-500 mt-0.5 text-center">
+                            {fmtRs(bagRate)}/bag
+                          </p>
+                        )}
                       </div>
-                      <div className="flex flex-col justify-end">
+                      <div>
                         <label className="block text-[10px] text-zinc-500 mb-1">Total</label>
                         <p className="text-sm font-bold text-white py-1.5">{fmtRs(total)}</p>
+                        {item.isCash && item.cashDiscountPct > 0 && (
+                          <p className="text-[10px] text-lime-400">-{item.cashDiscountPct}% applied</p>
+                        )}
                       </div>
                     </div>
                   </div>
                 );
               })}
 
-              {/* Total row */}
+              {/* Grand total */}
               <div className="flex justify-between items-center px-1 pt-1 border-t border-white/8">
                 <span className="text-sm font-semibold text-zinc-400">Grand Total</span>
                 <span className="text-lg font-bold text-white">{fmtRs(totalAmount)}</span>

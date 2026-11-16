@@ -16,7 +16,7 @@ interface Product {
   isActive: boolean;
 }
 
-const CATEGORIES = ['All', 'Feed', 'Medicine', 'Mineral', 'Equipment', 'Other'];
+const CATEGORIES = ['All', 'Feed', 'Medicine', 'Minerals', 'Chemical', 'Equipment', 'Packaging', 'Other'];
 
 const ProductList: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -110,9 +110,10 @@ const ProductList: React.FC = () => {
                   <p className="text-xs text-zinc-500 mt-0.5">{p.company} · {p.code}</p>
                 </div>
                 <span className={`shrink-0 ml-2 px-2 py-0.5 rounded-lg text-[10px] font-semibold ${
-                  p.category === 'Feed' ? 'bg-orange-500/20 text-orange-400' :
+                  p.category === 'Feed'     ? 'bg-orange-500/20 text-orange-400' :
                   p.category === 'Medicine' ? 'bg-red-500/20 text-red-400' :
-                  p.category === 'Mineral' ? 'bg-blue-500/20 text-blue-400' :
+                  p.category === 'Minerals' ? 'bg-blue-500/20 text-blue-400' :
+                  p.category === 'Chemical' ? 'bg-purple-500/20 text-purple-400' :
                   'bg-zinc-500/20 text-zinc-400'
                 }`}>
                   {p.category}
@@ -120,18 +121,39 @@ const ProductList: React.FC = () => {
               </div>
 
               <div className="border-t border-white/6 pt-3 mt-3 space-y-1.5">
+                {/* Borrowing rate (credit) */}
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-zinc-500">Selling Rate</span>
+                  <span className="text-xs text-zinc-500">Borrowing Rate</span>
                   {p.approvedSellingRate
                     ? <span className="text-sm font-bold text-emerald-400">{fmtRs(p.approvedSellingRate)} / {p.baseStockUnit}</span>
                     : <span className="text-xs text-amber-400 font-medium">Rate pending ⏳</span>
                   }
                 </div>
-                {p.sellingDiscountPercent != null && p.sellingDiscountPercent > 0 && (
+                {/* Bag rate (borrowing) */}
+                {p.packSize && p.packSize > 0 && p.approvedSellingRate && (
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-zinc-500">Max Discount</span>
-                    <span className="text-xs text-lime-400">{p.sellingDiscountPercent}%</span>
+                    <span className="text-xs text-zinc-500">Per bag ({p.packSize}{p.baseStockUnit})</span>
+                    <span className="text-xs font-semibold text-emerald-300">{fmtRs(p.approvedSellingRate * p.packSize)} / bag</span>
                   </div>
+                )}
+                {/* Cash rate */}
+                {p.approvedSellingRate && p.sellingDiscountPercent != null && p.sellingDiscountPercent > 0 && (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-zinc-500">Cash Rate ({p.sellingDiscountPercent}% off)</span>
+                      <span className="text-xs font-bold text-lime-400">
+                        {fmtRs(p.approvedSellingRate * (1 - p.sellingDiscountPercent / 100))} / {p.baseStockUnit}
+                      </span>
+                    </div>
+                    {p.packSize && p.packSize > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-zinc-500">Cash per bag</span>
+                        <span className="text-xs font-bold text-lime-300">
+                          {fmtRs(p.approvedSellingRate * p.packSize * (1 - p.sellingDiscountPercent / 100))} / bag
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
                 {p.mrp && (
                   <div className="flex justify-between items-center">
