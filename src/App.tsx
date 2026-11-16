@@ -14,6 +14,7 @@ import Payments from './pages/Payments';
 import DayClose from './pages/DayClose';
 import HarvestDraft from './pages/HarvestDraft';
 import Statement from './pages/Statement';
+import FarmerRegister from './pages/FarmerRegister';
 
 const App: React.FC = () => (
   <AuthProvider>
@@ -34,6 +35,7 @@ const App: React.FC = () => (
           <Route path="day-close"     element={<Layout><DayClose /></Layout>} />
           <Route path="harvest-draft" element={<Layout><HarvestDraft /></Layout>} />
           <Route path="statement"     element={<Layout><Statement /></Layout>} />
+          <Route path="farmers"       element={<Layout><FarmerRegister /></Layout>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
