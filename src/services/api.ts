@@ -23,13 +23,22 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Global 401/403 handler
+// Global 401/403 handler — only redirect to login if NOT already on /login
+// and NOT a background data request (let ProtectedRoute handle auth state)
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 || err.response?.status === 403) {
+    const status = err.response?.status;
+    const url = err.config?.url ?? '';
+    const isAuthEndpoint = url.includes('/staff/login') || url.includes('/staff/me');
+    if ((status === 401 || status === 403) && !isAuthEndpoint) {
       clearToken();
-      window.location.href = '/login';
+      // Only hard-navigate if the token is truly gone (session expired)
+      // Don't redirect for data-load failures (e.g. /invoices/summary) on the dashboard
+      const isSessionCheck = url.includes('/staff/me');
+      if (!isSessionCheck && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(err);
   }
