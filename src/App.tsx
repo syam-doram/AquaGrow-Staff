@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -15,6 +15,9 @@ import DayClose from './pages/DayClose';
 import HarvestDraft from './pages/HarvestDraft';
 import Statement from './pages/Statement';
 import FarmerRegister from './pages/FarmerRegister';
+import SalesList from './pages/SalesList';
+import CultureCycle from './pages/CultureCycle';
+import CreditCollection from './pages/CreditCollection';
 
 const App: React.FC = () => (
   <AuthProvider>
@@ -36,6 +39,9 @@ const App: React.FC = () => (
           <Route path="harvest-draft" element={<Layout><HarvestDraft /></Layout>} />
           <Route path="statement"     element={<Layout><Statement /></Layout>} />
           <Route path="farmers"       element={<Layout><FarmerRegister /></Layout>} />
+          <Route path="sales-bills"   element={<Layout><SalesList /></Layout>} />
+          <Route path="cultures"      element={<Layout><CultureCycle /></Layout>} />
+          <Route path="credit"        element={<Layout><CreditCollection /></Layout>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

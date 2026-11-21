@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import {
   CreditCard, Loader2, AlertCircle, CheckCircle2,
@@ -17,7 +17,7 @@ interface Invoice {
   createdAt: string;
 }
 
-const fmtRs  = (v: number) => `₹${v.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+const fmtRs  = (v: number) => `â‚¹${v.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const fmtDate = (s: string) => new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
 const METHODS = ['Cash', 'UPI', 'Bank', 'Credit', 'Mixed'];
@@ -58,7 +58,7 @@ const Payments: React.FC = () => {
   useEffect(() => { load(); }, [load]);
 
   const setForm = (id: string, field: 'amount' | 'method', val: string) =>
-    setPayForms(prev => ({ ...prev, [id]: { amount: '', method: 'Cash', ...prev[id], [field]: val } }));
+    setPayForms(prev => ({ ...prev, [id]: { ...{ amount: '', method: 'Cash' }, ...prev[id], [field]: val } }));
 
   const handlePay = async (inv: Invoice) => {
     const form = payForms[inv._id];
@@ -69,7 +69,7 @@ const Payments: React.FC = () => {
     const alreadyPaid = (inv.payments || []).reduce((s, p) => s + (p.amount || 0), 0);
     const outstanding = inv.totalAmount - alreadyPaid;
     if (amt > outstanding + 0.01) {
-      setError(`Payment ₹${amt.toFixed(2)} exceeds outstanding ${fmtRs(outstanding)}`);
+      setError(`Payment â‚¹${amt.toFixed(2)} exceeds outstanding ${fmtRs(outstanding)}`);
       return;
     }
 
@@ -90,8 +90,8 @@ const Payments: React.FC = () => {
   };
 
   const farmerName = (inv: Invoice): string => {
-    if (!inv.farmerId) return '—';
-    if (typeof inv.farmerId === 'object') return (inv.farmerId as any).name ?? '—';
+    if (!inv.farmerId) return 'â€”';
+    if (typeof inv.farmerId === 'object') return (inv.farmerId as any).name ?? 'â€”';
     return String(inv.farmerId).slice(-6).toUpperCase();
   };
 
@@ -148,7 +148,7 @@ const Payments: React.FC = () => {
                           : 'bg-amber-500/20 text-amber-400'
                       }`}>{inv.status.toUpperCase()}</span>
                     </div>
-                    <p className="text-xs text-zinc-600 mt-0.5">{farmerName(inv)} · {fmtDate(inv.createdAt)}</p>
+                    <p className="text-xs text-zinc-600 mt-0.5">{farmerName(inv)} Â· {fmtDate(inv.createdAt)}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-zinc-500">Total</p>
@@ -181,7 +181,7 @@ const Payments: React.FC = () => {
                 {/* Payment form */}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Amount (₹)</label>
+                    <label className="block text-xs text-zinc-500 mb-1">Amount (â‚¹)</label>
                     <input
                       type="number" min="0.01" step="0.01"
                       value={form.amount}
@@ -208,7 +208,7 @@ const Payments: React.FC = () => {
                   className="w-full flex items-center justify-center gap-2 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white font-bold rounded-xl text-sm transition"
                 >
                   {paying === inv._id && <Loader2 size={14} className="animate-spin" />}
-                  {paying === inv._id ? 'Processing…' : 'Record Payment'}
+                  {paying === inv._id ? 'Processingâ€¦' : 'Record Payment'}
                 </button>
               </div>
             );

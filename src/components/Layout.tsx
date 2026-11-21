@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth, canStock, canBill, canClose, isManager } from '../context/AuthContext';
 import {
   LayoutDashboard, PackagePlus, ShoppingCart, Package,
   CreditCard, ClipboardCheck, Sprout, FileText, LogOut,
-  Fish, Menu, X, ChevronRight, Users,
+  Fish, Menu, X, ChevronRight, Users, ReceiptText, IndianRupee,
 } from 'lucide-react';
 
 interface NavItem {
@@ -15,15 +15,18 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { path: '/',              label: 'Dashboard',       icon: LayoutDashboard, show: () => true },
-  { path: '/stock-inward', label: 'Stock Inward',     icon: PackagePlus,     show: canStock },
-  { path: '/products',     label: 'Products',         icon: Package,         show: () => true },
-  { path: '/invoice',      label: 'Create Bill',      icon: ShoppingCart,    show: canBill },
-  { path: '/payments',     label: 'Payments',         icon: CreditCard,      show: canBill },
-  { path: '/farmers',      label: 'Farmer Register',  icon: Users,           show: () => true },
-  { path: '/day-close',    label: 'Day Close',        icon: ClipboardCheck,  show: canClose },
-  { path: '/harvest-draft',label: 'Harvest Draft',    icon: Sprout,          show: isManager },
-  { path: '/statement',    label: 'Statement',        icon: FileText,        show: isManager },
+  { path: '/',               label: 'Dashboard',        icon: LayoutDashboard, show: () => true },
+  { path: '/stock-inward',   label: 'Stock Inward',     icon: PackagePlus,     show: canStock },
+  { path: '/products',       label: 'Products',         icon: Package,         show: () => true },
+  { path: '/invoice',        label: 'Create Bill',      icon: ShoppingCart,    show: canBill },
+  { path: '/sales-bills',    label: 'Sales Bills',      icon: ReceiptText,     show: canBill },
+  { path: '/cultures',       label: 'Culture Cycles',   icon: Sprout,          show: () => true },
+  { path: '/credit',         label: 'Credit Collection',icon: IndianRupee,     show: canBill },
+  { path: '/payments',       label: 'Payments',         icon: CreditCard,      show: canBill },
+  { path: '/farmers',        label: 'Farmer Register',  icon: Users,           show: () => true },
+  { path: '/day-close',      label: 'Day Close',        icon: ClipboardCheck,  show: canClose },
+  { path: '/harvest-draft',  label: 'Harvest Draft',    icon: Sprout,          show: isManager },
+  { path: '/statement',      label: 'Statement',        icon: FileText,        show: isManager },
 ];
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
