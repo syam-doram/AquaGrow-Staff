@@ -56,7 +56,8 @@ const StockInward: React.FC = () => {
 
   const handleSelectProduct = (p: Product) => {
     set('productId', p._id);
-    set('unit', p.baseStockUnit);
+    // If product has packSize, default to 'bag'
+    set('unit', p.packSize ? 'bag' : p.baseStockUnit);
     setProductSearch(p.name);
     setShowProductDrop(false);
   };
@@ -78,7 +79,8 @@ const StockInward: React.FC = () => {
         items: [{
           productId: form.productId,
           quantity: Number(form.quantity),
-          unit: form.unit || selectedProduct?.baseStockUnit,
+          unit: form.unit || (selectedProduct?.packSize ? 'bag' : selectedProduct?.baseStockUnit),
+          packSize: selectedProduct?.packSize,
           batchId: form.batchNumber || undefined,
         }],
       });
@@ -170,10 +172,17 @@ const StockInward: React.FC = () => {
                       <button
                         key={p._id} type="button"
                         onClick={() => handleSelectProduct(p)}
-                        className="w-full text-left px-4 py-2.5 hover:bg-white/8 text-sm"
+                        className="w-full text-left px-4 py-2.5 hover:bg-white/8 text-sm flex items-center justify-between"
                       >
-                        <span className="text-white font-medium">{p.name}</span>
-                        <span className="text-zinc-500 ml-2 text-xs">{p.code} · {p.company}</span>
+                        <div>
+                          <span className="text-white font-medium">{p.name}</span>
+                          <span className="text-zinc-500 ml-2 text-xs">{p.code} · {p.company}</span>
+                        </div>
+                        {p.category && (
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-zinc-400">
+                            {p.category}
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -197,21 +206,39 @@ const StockInward: React.FC = () => {
         {/* Quantity + Unit */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5">Quantity *</label>
+            <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+              Quantity * {selectedProduct?.packSize ? `(in ${form.unit || 'bags'})` : ''}
+            </label>
             <input
               type="number" min="0.01" step="any"
               value={form.quantity} onChange={e => set('quantity', e.target.value)}
               placeholder="0.00"
               className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none focus:border-emerald-500/60 transition"
             />
+            {selectedProduct?.packSize && form.quantity && Number(form.quantity) > 0 && form.unit === 'bag' && (
+              <p className="text-[11px] text-emerald-400 mt-1 font-medium">
+                = {Number(form.quantity) * selectedProduct.packSize} {selectedProduct.baseStockUnit} total ({selectedProduct.packSize} {selectedProduct.baseStockUnit}/bag)
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1.5">Unit</label>
-            <input
-              value={form.unit} onChange={e => set('unit', e.target.value)}
-              placeholder={selectedProduct?.baseStockUnit || 'kg / bag / bottle'}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none focus:border-emerald-500/60 transition"
-            />
+            {selectedProduct?.packSize ? (
+              <select
+                value={form.unit}
+                onChange={e => set('unit', e.target.value)}
+                className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/60 transition"
+              >
+                <option value="bag">Bags ({selectedProduct.packSize}{selectedProduct.baseStockUnit}/bag)</option>
+                <option value={selectedProduct.baseStockUnit}>{selectedProduct.baseStockUnit} (loose)</option>
+              </select>
+            ) : (
+              <input
+                value={form.unit} onChange={e => set('unit', e.target.value)}
+                placeholder={selectedProduct?.baseStockUnit || 'kg / bag / bottle'}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none focus:border-emerald-500/60 transition"
+              />
+            )}
           </div>
         </div>
 
